@@ -1,16 +1,13 @@
 #!/usr/bin/env node
-import { Server } from "@modelcontextprotocol/sdk/server/index.js";
-import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
-import {
-  CallToolRequestSchema,
-  ListToolsRequestSchema,
-} from "@modelcontextprotocol/sdk/types.js";
-import { connectToMongoDB, closeMongoDB } from "./mongodb/client.js";
-import { ToolRegistry } from "./tools/registry.js";
+import { Server } from '@modelcontextprotocol/sdk/server/index.js';
+import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
+import { CallToolRequestSchema, ListToolsRequestSchema } from '@modelcontextprotocol/sdk/types.js';
+import { connectToMongoDB, closeMongoDB } from './mongodb/client.js';
+import { ToolRegistry } from './tools/registry.js';
 
 const args = process.argv.slice(2);
 if (args.length === 0) {
-  console.error("Please provide a MongoDB connection URL");
+  console.error('Please provide a MongoDB connection URL');
   process.exit(1);
 }
 const databaseUrl = args[0];
@@ -19,26 +16,26 @@ const toolRegistry = new ToolRegistry();
 
 const server = new Server(
   {
-    name: "mongodb-mcp",
-    version: "0.1.0",
+    name: 'mongodb-mcp',
+    version: '0.1.0'
   },
   {
     capabilities: {
       resources: {},
       tools: {
         list: true,
-        call: true,
-      },
-    },
+        call: true
+      }
+    }
   }
 );
 
 server.setRequestHandler(ListToolsRequestSchema, async () => ({
   tools: toolRegistry.getToolSchemas(),
-  _meta: {},
+  _meta: {}
 }));
 
-server.setRequestHandler(CallToolRequestSchema, async (request) => {
+server.setRequestHandler(CallToolRequestSchema, async request => {
   const name = request.params.name;
   const args = request.params.arguments ?? {};
 
@@ -52,19 +49,18 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     }
 
     const result = await tool.execute(args);
-    return { toolResult: result };
+    // Return the result directly - MCP SDK expects { content: [...] } format
+    return result;
   } catch (error) {
-    console.error("Operation failed:", error);
+    console.error('Operation failed:', error);
     return {
-      toolResult: {
-        content: [
-          {
-            type: "text",
-            text: error.message,
-          },
-        ],
-        isError: true,
-      },
+      content: [
+        {
+          type: 'text',
+          text: error instanceof Error ? error.message : String(error)
+        }
+      ],
+      isError: true
     };
   }
 });
@@ -74,14 +70,14 @@ async function runServer() {
     await connectToMongoDB(databaseUrl);
     const transport = new StdioServerTransport();
     await server.connect(transport);
-    console.error("MongoDB MCP server running on stdio");
+    console.error('MongoDB MCP server running on stdio');
   } catch (error) {
-    console.error("Failed to start server:", error);
+    console.error('Failed to start server:', error);
     process.exit(1);
   }
 }
 
-process.on("SIGINT", async () => {
+process.on('SIGINT', async () => {
   try {
     await closeMongoDB();
   } finally {
@@ -89,8 +85,8 @@ process.on("SIGINT", async () => {
   }
 });
 
-process.on("unhandledRejection", (error) => {
-  console.error("Unhandled promise rejection:", error);
+process.on('unhandledRejection', error => {
+  console.error('Unhandled promise rejection:', error);
   process.exit(1);
 });
 
